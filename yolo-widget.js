@@ -126,7 +126,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Prepare form data
         const formData = new FormData();
-        formData.append('action', 'process_yolo_image');
         formData.append('task', document.querySelector('select[name="task"]').value);
         formData.append('model', document.querySelector('select[name="model"]').value);
         formData.append('image_size', selectedImageSize);
@@ -139,21 +138,26 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('image', currentImageData);
         }
 
-        // Send to backend
-        fetch('/wp-admin/admin-ajax.php', {
+        // Send to external API
+        fetch('https://yolo-demo.neuralnet.solutions/predict', {
             method: 'POST',
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             loading.style.display = 'none';
             processBtn.disabled = false;
             processBtn.textContent = 'Process Image';
             
-            if (data.success) {
-                showResults(data.data);
+            if (data.success || data.status === 'success') {
+                showResults(data);
             } else {
-                showError(data.data || 'Processing failed');
+                showError(data.message || data.error || 'Processing failed');
             }
         })
         .catch(error => {
@@ -161,23 +165,35 @@ document.addEventListener('DOMContentLoaded', function() {
             loading.style.display = 'none';
             processBtn.disabled = false;
             processBtn.textContent = 'Process Image';
-            showError('Network error. Please try again.');
+            showError(`Network error: ${error.message}`);
         });
     });
 
     function showResults(data) {
         const resultsContent = document.getElementById('results-content');
+        
+        // Handle different possible response formats
+        const imageUrl = data.processed_image_url || data.result_image || data.image_url || data.output_image;
+        const detectionsCount = data.detections_count || data.detections || data.objects_detected || 'Unknown';
+        const processingTime = data.processing_time || data.inference_time || data.time || 'N/A';
+        const modelUsed = data.model || data.model_name || 'N/A';
+        
         resultsContent.innerHTML = `
             <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 300px;">
-                    <img src="${data.processed_image_url}" alt="Processed Image" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);">
+                    ${imageUrl ? 
+                        `<img src="${imageUrl}" alt="Processed Image" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);">` :
+                        `<div style="width: 100%; height: 300px; background: #f5f5f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #666;">No processed image available</div>`
+                    }
                 </div>
                 <div style="flex: 1; min-width: 200px;">
                     <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(255, 107, 53, 0.1); border: 1px solid #ffe8e0;">
                         <h4 style="margin: 0 0 15px 0; color: #333;">Detection Summary</h4>
-                        <p style="margin: 5px 0;"><strong style="color: #ff6b35;">Objects detected:</strong> ${data.detections_count || 0}</p>
-                        <p style="margin: 5px 0;"><strong style="color: #ff6b35;">Processing time:</strong> ${data.processing_time || 'N/A'}</p>
-                        <p style="margin: 5px 0;"><strong style="color: #ff6b35;">Model used:</strong> ${data.model || 'N/A'}</p>
+                        <p style="margin: 5px 0;"><strong style="color: #ff6b35;">Objects detected:</strong> ${detectionsCount}</p>
+                        <p style="margin: 5px 0;"><strong style="color: #ff6b35;">Processing time:</strong> ${processingTime}</p>
+                        <p style="margin: 5px 0;"><strong style="color: #ff6b35;">Model used:</strong> ${modelUsed}</p>
+                        ${data.confidence ? `<p style="margin: 5px 0;"><strong style="color: #ff6b35;">Confidence:</strong> ${data.confidence}</p>` : ''}
+                        ${data.classes ? `<p style="margin: 5px 0;"><strong style="color: #ff6b35;">Classes found:</strong> ${data.classes.join(', ')}</p>` : ''}
                     </div>
                 </div>
             </div>
@@ -190,6 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsContent.innerHTML = `
             <div style="background: #fff5f5; border: 1px solid #fecaca; color: #dc2626; padding: 15px; border-radius: 8px;">
                 <strong>Error:</strong> ${message}
+                <br><small>Please check if the API server is running and accessible.</small>
             </div>
         `;
         results.style.display = 'block';
