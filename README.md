@@ -17,7 +17,10 @@ This repository provides a complete interactive YOLO (You Only Look Once) widget
 
 The YOLO widget allows users to upload images and perform object detection, segmentation, or classification using state-of-the-art YOLO models directly in their browser.
 
-![YOLO Widget Demo](https://via.placeholder.com/800x400/ff6b35/ffffff?text=YOLO+Widget+Demo)
+![YOLO Widget Demo](https://github.com/NeuralNet-Hub/yolo-widget/blob/main/widget.html)
+
+
+
 
 ## Features
 
